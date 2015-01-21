@@ -15,7 +15,7 @@ from skimage.io import imsave as skimsave
 from skimage.color import label2rgb
 from skimage.morphology import closing, square
 from skimage.measure import regionprops, label
-from skimage.transform import rotate
+from skimage.transform import rotate, resize
 from skimage.segmentation import clear_border
 
 from Tkinter import Label, Frame
@@ -41,7 +41,7 @@ def autoOvalSolver(corte):
             the properties of the detected regions
                 [region1, ..., regionN]
     ''' 
-    clBrd=corte < 1
+    clBrd=corte < .7
     colab=label(-clBrd,background=0)
     colab+=1
     boxes, centroids, borders, props = [],[],[],[]
@@ -92,12 +92,18 @@ def ovalize(fpath):
     
     SKP 2014
     '''
-    colegial=skimread(fpath, as_grey=True )           
+    colegial=skimread(fpath, as_grey=True )
+    if np.shape(colegial)[0] > 2400:
+        colegial=colegial[:2214,:]
+        colegial=resize(colegial, [1076,826], order=2)
+        colegial=colegial<.9
+        colegial=colegial-1
+        colegial=colegial*-255
     cole=(colegial < .9)    
     col=closing(cole, square(3))
     clear_border(col)
     colab = label(col, background=0)
-    colab+=1; prmCorte=[]; origen=[]
+    colab+=1; prmCorte=[]
     A=[regionprops(colab)[x].area
        for x in range(len(np.unique(colab))-1)]
     limA=[int(np.mean(x)+(np.std(x)/np.sqrt(len(x)))*4)
@@ -105,17 +111,20 @@ def ovalize(fpath):
     for reg in regionprops(colab):
         if reg.area < limA:
             continue
+        if len(np.unique(reg)) < 1:
+            continue
         angle=np.rad2deg(reg.orientation)
         y0,x0,y1,x1=reg.bbox
         rotedLab=rotate((col[y0:y1,x0:x1]*1.0), mode= 'constant',cval=0.0, angle=-angle)
-        rotedOr=rotate((cole[y0:y1,x0:x1]*1.0), mode= 'constant',cval=0.0, angle=-angle)
         prmCorte.append(rotedLab)
-        origen.append(rotedOr)
-    tmp=prmCorte[-3].copy(); tmpB=origen[-3].copy() 
-    prmCorte[-3]=prmCorte[-2]; origen[-3]=origen[-2]
-    prmCorte[-2]=tmp; origen[-2]=tmpB
+    tmp=prmCorte[-3].copy()
+    prmCorte[-3]=prmCorte[-2]
+    prmCorte[-2]=tmp
+    if np.shape(skimread(fpath, as_grey=True ))[0] >2400:
+        tmp=prmCorte.pop(9)
+        prmCorte.insert(7,tmp)
     [clear_border(prmCorte[x]) for x in range(len(prmCorte))]
-    [clear_border(origen[x]) for x in range(len(origen))]
+    prmCorte=[cut for cut in prmCorte if len(np.unique(cut)) > 1]    
 #    prmCorte=[-prmCorte[x] for x in range(len(prmCorte))]
     return prmCorte
 
@@ -150,23 +159,23 @@ def makeImg(solved):
     #im.save(str('tmpB.png'))
     return im
 
-if __name__ == "__main__":
-    ims=[]
-    for d, s, f in os.walk('.'):
-        for x in [u for u in f if '.png' in u.lower()]:
-            ims.append(os.path.join(d,x))
-    ims.sort()
-    names=[ims[x].split('/') for x in range(len(ims))]
-    prmCorte=[None]*len(ims)
-    prmCorte=[ovalize(im) for im in ims]
-    for y, cortes in enumerate(prmCorte):
-        solution =[autoOvalSolver(z) for z in cortes]
-        resIm=[makeImg(z) for z in solution]
-        nIms=Image.new('RGB', (600,950))
-        posy=range(0,950,190)
-        [nIms.paste(img, (0,x)) for img,x in zip(resIm[0:10:2],posy)]
-        [nIms.paste(img, (300,x)) for img,x in zip(resIm[1:10:2],posy)]
-        nIms.save(ims[y]+'.png')
+#if __name__ == "__main__":
+#    ims=[]
+#    for d, s, f in os.walk('.'):
+#        for x in [u for u in f if '.png' in u.lower()]:
+#            ims.append(os.path.join(d,x))
+#    ims.sort()
+#    names=[ims[x].split('/') for x in range(len(ims))]
+#    prmCorte=[None]*len(ims)
+#    prmCorte=[ovalize(im) for im in ims]
+#    for y, cortes in enumerate(prmCorte):
+#        solution =[autoOvalSolver(z) for z in cortes]
+#        resIm=[makeImg(z) for z in solution]
+#        nIms=Image.new('RGB', (600,950))
+#        posy=range(0,950,190)
+#        [nIms.paste(img, (0,x)) for img,x in zip(resIm[0:10:2],posy)]
+#        [nIms.paste(img, (300,x)) for img,x in zip(resIm[1:10:2],posy)]
+#        nIms.save(ims[y]+'.png')
 #    a=[[None]*len(prmCorte)]*10
 #    
 #    prmCorte,ims=ovalize(fpath)
