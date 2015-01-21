@@ -159,32 +159,21 @@ def makeImg(solved):
     #im.save(str('tmpB.png'))
     return im
 
-#if __name__ == "__main__":
-#    ims=[]
-#    for d, s, f in os.walk('.'):
-#        for x in [u for u in f if '.png' in u.lower()]:
-#            ims.append(os.path.join(d,x))
-#    ims.sort()
-#    names=[ims[x].split('/') for x in range(len(ims))]
-#    prmCorte=[None]*len(ims)
-#    prmCorte=[ovalize(im) for im in ims]
-#    for y, cortes in enumerate(prmCorte):
-#        solution =[autoOvalSolver(z) for z in cortes]
-#        resIm=[makeImg(z) for z in solution]
-#        nIms=Image.new('RGB', (600,950))
-#        posy=range(0,950,190)
-#        [nIms.paste(img, (0,x)) for img,x in zip(resIm[0:10:2],posy)]
-#        [nIms.paste(img, (300,x)) for img,x in zip(resIm[1:10:2],posy)]
-#        nIms.save(ims[y]+'.png')
-#    a=[[None]*len(prmCorte)]*10
-#    
-#    prmCorte,ims=ovalize(fpath)
-#    aut=autoOvalSolver(prmCorte[6])
-#    makeImg(aut)
-#    MyImage('tmpB.png').mainloop()
-#    
-#
-#new_im=Image.new('RGB',(600,1000))
-#posy=range(0,802,200)
-#[new_im.paste(im, (0,x)) for im,x in zip(ims[0:10:2],posy)]
-#[new_im.paste(im, (300,x)) for im,x in zip(ims[1:10:2],posy)]
+if __name__ == "__main__":
+    ims=[]
+    for d, s, f in os.walk('.'):
+        for x in [u for u in f if '.png' in u.lower()]:
+            ims.append(os.path.join(d,x))
+    ims.sort()
+    dr=os.getcwd()
+    names=[ims[x].split('/')[-1] for x in range(len(ims))]
+    prmCorte=[None]*len(ims)
+    prmCorte=[ovalize(im) for im in ims]
+    for y, cortes in enumerate(prmCorte):
+        solution =[autoOvalSolver(z) for z in cortes]
+        resIm=[makeImg(z) for z in solution]
+        nIms=Image.new('RGB', (600,950))
+        posy=range(0,950,190)
+        [nIms.paste(img, (0,x)) for img,x in zip(resIm[0:10:2],posy)]
+        [nIms.paste(img, (300,x)) for img,x in zip(resIm[1:10:2],posy)]
+        nIms.save(dr+'/tmp/'+names[y]+'.png')
