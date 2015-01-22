@@ -18,7 +18,7 @@ from skimage.measure import regionprops, label
 from skimage.transform import rotate, resize
 from skimage.segmentation import clear_border
 
-from Tkinter import Label, Frame
+from Tkinter import Label, Frame, Canvas, BOTH, NW
 from PIL import Image, ImageTk, ImageDraw
 
 def autoOvalSolver(corte):
@@ -44,7 +44,7 @@ def autoOvalSolver(corte):
     clBrd=corte < .7
     colab=label(-clBrd,background=0)
     colab+=1
-    boxes, centroids, borders, props = [],[],[],[]
+    centroids, borders, props = [],[],[]
     lettPos=[np.shape(corte)[1]/6,np.shape(corte)[0]/2]
     A=[regionprops(colab)[x].major_axis_length
        for x in range(len(np.unique(colab))-1)]
@@ -68,17 +68,14 @@ def autoOvalSolver(corte):
             #if the region it's too small, probably doesn't matter
             ):
             continue
-        rect=zip([minc,minr],[maxc,maxr])
         cent=[region.centroid[1],region.centroid[0]]
-        boxes.append(rect)
         centroids.append(cent)
         borders.append([minc,maxc])
         props.append(region)
-    boxes.sort(key=lambda x: x[0][1])
     centroids.sort(key=lambda x: x[0])
     borders.sort(key=lambda x: x[0])
     props.sort(key=lambda x: x.centroid[1])
-    return colab, boxes, centroids, borders, props
+    return colab, centroids, borders, props
     
 def ovalize(fpath):
     '''
@@ -124,22 +121,37 @@ def ovalize(fpath):
         tmp=prmCorte.pop(9)
         prmCorte.insert(7,tmp)
     [clear_border(prmCorte[x]) for x in range(len(prmCorte))]
-    prmCorte=[cut for cut in prmCorte if len(np.unique(cut)) > 1]    
+    prmCorte=[cut for cut in prmCorte if len(np.unique(cut)) > 1]  
+  
 #    prmCorte=[-prmCorte[x] for x in range(len(prmCorte))]
     return prmCorte
-
 class MyImage(Frame):
-    def __init__ (self,ipath,master = None):
+    def __init__ (self,solved,master = None):
         Frame.__init__(self, master)
-        self.pack()
-        self.ipath=ipath
-        img = Image.open(self.ipath)       
-        pic = ImageTk.PhotoImage(img)
-        label = Label(self, image = pic)
-        # Keep a reference!
-        # (or dont and see what happens)
-        label.image = pic
-        label.pack()
+        self.colab, self.centroids, self.borders, self.props = solved
+        self.rgbcolab=label2rgb(self.colab, bg_label=0, bg_color=[.7,.7,.7])
+        skimsave('tmp.png', self.rgbcolab)
+        self.im=Image.open('tmp.png')        
+        self.pic = ImageTk.PhotoImage(self.im)
+        self.initUI()
+        
+    def initUI(self):
+        self.pack(fill=BOTH, expand=1)
+        canvas = Canvas(self, width=self.im.size[0], height=self.im.size[1])
+        boxes=[(canvas.canvasx(x.bbox[1]), canvas.canvasx(x.bbox[2]),
+                canvas.canvasx(x.bbox[3]), canvas.canvasx(x.bbox[0])) for x in self.props]
+
+        canvas.create_image(0,0,anchor=NW, image=self.pic)
+        #imbox=canvas.bbox(imID)
+        self.rects = [canvas.create_rectangle(x[0], x[1], x[2],x[3] , fill=None, outline='red') for x in boxes]
+        self.ellis = [canvas.create_oval((x[0]-2,x[1]-2,x[0]+2,x[1]+2), fill='green',outline='green') for x in self.centroids]
+        if len(self.rects) > 5:
+            [canvas.delete(x) for x in self.rects[5:]]
+        if len(self.ellis) > 5:
+            [canvas.delete(x) for x in self.ellis[5:]]
+        canvas.pack(fill=BOTH, expand=1)
+
+
 
 def makeImg(solved):
     '''
@@ -148,7 +160,7 @@ def makeImg(solved):
 
         Still have to work on it...a lot...
     '''
-    colab, boxes, centroids, borders, props = solved
+    colab, centroids, borders, props = solved
     rgbcolab=label2rgb(colab, bg_label=0, bg_color=[.7,.7,.7])
     skimsave('tmp.png', rgbcolab)
     im=Image.open('tmp.png')
@@ -159,21 +171,22 @@ def makeImg(solved):
     #im.save(str('tmpB.png'))
     return im
 
-if __name__ == "__main__":
-    ims=[]
-    for d, s, f in os.walk('.'):
-        for x in [u for u in f if '.png' in u.lower()]:
-            ims.append(os.path.join(d,x))
-    ims.sort()
-    dr=os.getcwd()
-    names=[ims[x].split('/')[-1] for x in range(len(ims))]
-    prmCorte=[None]*len(ims)
-    prmCorte=[ovalize(im) for im in ims]
-    for y, cortes in enumerate(prmCorte):
-        solution =[autoOvalSolver(z) for z in cortes]
-        resIm=[makeImg(z) for z in solution]
-        nIms=Image.new('RGB', (600,950))
-        posy=range(0,950,190)
-        [nIms.paste(img, (0,x)) for img,x in zip(resIm[0:10:2],posy)]
-        [nIms.paste(img, (300,x)) for img,x in zip(resIm[1:10:2],posy)]
-        nIms.save(dr+'/tmp/'+names[y]+'.png')
+#if __name__ == "__main__":
+#    ims=[]
+#    for d, s, f in os.walk('.'):
+#        for x in [u for u in f if '.png' in u.lower()]:
+#            ims.append(os.path.join(d,x))
+#    ims.sort()
+#    dr=os.getcwd()
+#    names=[ims[x].split('/')[-1] for x in range(len(ims))]
+#    prmCorte=[None]*len(ims)
+#    prmCorte=[ovalize(im) for im in ims]
+#    for y, cortes in enumerate(prmCorte):
+#        solution =[autoOvalSolver(z) for z in cortes]
+#        resIm=[makeImg(z) for z in solution]
+#        nIms=Image.new('RGB', (600,950))
+#        posy=range(0,950,190)
+#        [nIms.paste(img, (0,x)) for img,x in zip(resIm[0:10:2],posy)]
+#        [nIms.paste(img, (300,x)) for img,x in zip(resIm[1:10:2],posy)]
+#        nIms.save(dr+'/tmp/'+names[y]+'.png')
+        
