@@ -18,7 +18,7 @@ from skimage.measure import regionprops, label
 from skimage.transform import rotate, resize
 from skimage.segmentation import clear_border
 
-from Tkinter import Label, Frame, Canvas, BOTH, NW
+from Tkinter import Label, Frame, Canvas, BOTH, NW, Button, RIGHT, BOTTOM, LEFT, RAISED
 from PIL import Image, ImageTk, ImageDraw
 
 def autoOvalSolver(corte):
@@ -136,23 +136,69 @@ class MyImage(Frame):
         self.initUI()
         
     def initUI(self):
+        '''
+            given the Frame, creates a canvas, puts the solved image, and
+            adds the rectangles and circles to mark the elements and centroids
+
+            Still needs to take mouse events, select the closest rectangle,
+            and put a new one depending on mouse press and release
+            ...easybreazy...
+        '''
         self.pack(fill=BOTH, expand=1)
-        canvas = Canvas(self, width=self.im.size[0], height=self.im.size[1])
+        frame = Frame(self, relief=RAISED, borderwidth=1)
+        frame.pack(fill=BOTH, expand=1)
+
+        self.canvas = Canvas(self, width=self.im.size[0], height=self.im.size[1])
+        canvas=self.canvas
         boxes=[(canvas.canvasx(x.bbox[1]), canvas.canvasx(x.bbox[2]),
                 canvas.canvasx(x.bbox[3]), canvas.canvasx(x.bbox[0])) for x in self.props]
 
         canvas.create_image(0,0,anchor=NW, image=self.pic)
         #imbox=canvas.bbox(imID)
-        self.rects = [canvas.create_rectangle(x[0], x[1], x[2],x[3] , fill=None, outline='red') for x in boxes]
-        self.ellis = [canvas.create_oval((x[0]-2,x[1]-2,x[0]+2,x[1]+2), fill='green',outline='green') for x in self.centroids]
+        self.rects = [canvas.create_rectangle(x[0], x[1], x[2],x[3] , 
+                        fill=None, outline='red') for x in boxes]
+        self.ellis = [canvas.create_oval((x[0]-2,x[1]-2,x[0]+2,x[1]+2),
+                        fill='green',outline='green') for x in self.centroids]
         if len(self.rects) > 5:
             [canvas.delete(x) for x in self.rects[5:]]
         if len(self.ellis) > 5:
             [canvas.delete(x) for x in self.ellis[5:]]
         canvas.pack(fill=BOTH, expand=1)
-
-
-
+        
+        denButton = Button(self, text="Denny", command=self.diy)
+        denButton.pack(side=RIGHT)
+        accButton = Button(self, text="Accept")
+        accButton.pack(side=LEFT)
+        quiButton = Button(frame, text="quit")
+        quiButton.pack(side=RIGHT)
+        
+    def diy(self):
+        [self.canvas.delete(x) for x in self.ellis]
+        [self.canvas.delete(x) for x in self.rects]
+        butP=self.canvas.bind("<Button-1>", self.press)
+        butR=self.canvas.bind("<ButtonRelease-1>", self.release)
+    def press(self,event):
+        print (event.x,event.y)
+        self.x0=event.x
+        self.y0=event.y
+        pass
+    def release(self,event):
+        print (event.x,event.y)
+        self.x1=event.x
+        self.y1=event.y
+        self.centx=np.sort([self.x0,self.x1])
+        self.centy=np.sort([self.y0,self.y1]) 
+        img=self.colab[self.centy[0]:self.centy[1],self.centx[0]:self.centx[1]]>0
+        mx=np.max(img)
+        print img*1
+        self.prop=regionprops(img)
+        self.centc=[self.prop[0].centroid[1]+self.centx[0],
+                   self.prop[0].centroid[0]+self.centy[0]]
+        self.center=self.centc
+        self.minr, self.minc, self.maxr, self.maxc = self.prop[0].bbox
+        print self.centc
+        
+    
 def makeImg(solved):
     '''
         Takes one solved object and draws boxes and centroids over the labeled 
@@ -170,7 +216,7 @@ def makeImg(solved):
     [draw.ellipse((x[0]-2,x[1]-2,x[0]+2,x[1]+2), fill=(0,255,0),outline=(0,255,0)) for x in centroids]
     #im.save(str('tmpB.png'))
     return im
-
+#
 #if __name__ == "__main__":
 #    ims=[]
 #    for d, s, f in os.walk('.'):
@@ -189,4 +235,4 @@ def makeImg(solved):
 #        [nIms.paste(img, (0,x)) for img,x in zip(resIm[0:10:2],posy)]
 #        [nIms.paste(img, (300,x)) for img,x in zip(resIm[1:10:2],posy)]
 #        nIms.save(dr+'/tmp/'+names[y]+'.png')
-        
+#        
