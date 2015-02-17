@@ -134,7 +134,7 @@ class MyImage(Frame):
         self.im=Image.open('tmp.png')        
         self.pic = ImageTk.PhotoImage(self.im)
         self.initUI()
-        
+        self.sol=[None]*4
     def initUI(self):
         '''
             given the Frame, creates a canvas, puts the solved image, and
@@ -149,34 +149,40 @@ class MyImage(Frame):
         frame.pack(fill=BOTH, expand=1)
 
         self.canvas = Canvas(self, width=self.im.size[0], height=self.im.size[1])
+        self.canvas.create_image(0,0,anchor=NW, image=self.pic)
         canvas=self.canvas
         boxes=[(canvas.canvasx(x.bbox[1]), canvas.canvasx(x.bbox[2]),
-                canvas.canvasx(x.bbox[3]), canvas.canvasx(x.bbox[0])) for x in self.props]
-
-        canvas.create_image(0,0,anchor=NW, image=self.pic)
-        #imbox=canvas.bbox(imID)
-        self.rects = [canvas.create_rectangle(x[0], x[1], x[2],x[3] , 
-                        fill=None, outline='red') for x in boxes]
-        self.ellis = [canvas.create_oval((x[0]-2,x[1]-2,x[0]+2,x[1]+2),
-                        fill='green',outline='green') for x in self.centroids]
-        if len(self.rects) > 5:
-            [canvas.delete(x) for x in self.rects[5:]]
-        if len(self.ellis) > 5:
-            [canvas.delete(x) for x in self.ellis[5:]]
-        canvas.pack(fill=BOTH, expand=1)
-        
+                canvas.canvasx(x.bbox[3]), canvas.canvasx(x.bbox[0])) for x in self.props]        
+        self.rects, self.ellis=self.markit(self.canvas, self.centroids, boxes)
         denButton = Button(self, text="Denny", command=self.diy)
         denButton.pack(side=RIGHT)
-        accButton = Button(self, text="Accept")
-        accButton.pack(side=LEFT)
-        quiButton = Button(frame, text="quit")
-        quiButton.pack(side=RIGHT)
+        self.accButton = Button(self, text="       ")
+        self.accButton.pack(side=LEFT)
+        okaButton = Button(frame, text="OK")
+        okaButton.pack(side=RIGHT)
         
+    def markit(self, canvas, centroids,boxes):
+        """
+        Marks the region bbox and centroid
+        """        
+        rects = [canvas.create_rectangle(x[0], x[1], x[2],x[3] , 
+                        fill=None, outline='red') for x in boxes]
+        ellis = [canvas.create_oval((x[0]-2,x[1]-2,x[0]+2,x[1]+2),
+                        fill='green',outline='green') for x in centroids]
+        if len(rects) > 5:
+            [canvas.delete(x) for x in rects[5:]]
+        if len(ellis) > 5:
+            [canvas.delete(x) for x in ellis[5:]]
+               
+        canvas.pack(fill=BOTH, expand=1)
+        return rects, ellis
     def diy(self):
         [self.canvas.delete(x) for x in self.ellis]
         [self.canvas.delete(x) for x in self.rects]
-        butP=self.canvas.bind("<Button-1>", self.press)
-        butR=self.canvas.bind("<ButtonRelease-1>", self.release)
+        self.butP=self.canvas.bind("<Button-1>", self.press)
+        self.butR=self.canvas.bind("<ButtonRelease-1>", self.release)
+        self.accButton.config(text="Accept")
+        
     def press(self,event):
         print (event.x,event.y)
         self.x0=event.x
@@ -184,19 +190,32 @@ class MyImage(Frame):
         pass
     def release(self,event):
         print (event.x,event.y)
+        canvas=self.canvas
         self.x1=event.x
         self.y1=event.y
         self.centx=np.sort([self.x0,self.x1])
         self.centy=np.sort([self.y0,self.y1]) 
-        img=self.colab[self.centy[0]:self.centy[1],self.centx[0]:self.centx[1]]>0
+        img=self.colab[self.centy[0]:self.centy[1],self.centx[0]:self.centx[1]]
         mx=np.max(img)
-        print img*1
-        self.prop=regionprops(img)
-        self.centc=[self.prop[0].centroid[1]+self.centx[0],
-                   self.prop[0].centroid[0]+self.centy[0]]
-        self.center=self.centc
-        self.minr, self.minc, self.maxr, self.maxc = self.prop[0].bbox
-        print self.centc
+        img=(img>0)*mx
+        self.sol=self.diyCent(img)
+        boxes=[(canvas.canvasx(self.centx[0]).__int__(), canvas.canvasy(self.centy[1].__int__()),
+               canvas.canvasx(self.centx[1]).__int__(), canvas.canvasy(self.centy[0].__int__()))]
+        print boxes
+        self.markit(self.canvas, [self.sol[1]], boxes)
+        
+    def diyCent(self, img):
+        prop=regionprops(img)[0]
+        minr, minc, maxr, maxc = prop.bbox
+        minr += self.y0; maxr += self.y0
+        minc += self.x0; maxc += self.x0
+        print prop.centroid
+        cent=[self.canvas.canvasx(prop.centroid[1]+self.x0),
+              self.canvas.canvasy(prop.centroid[0]+self.y0)]
+        bord=([minc,maxc])
+        return img, cent, bord, prop
+        
+        
         
     
 def makeImg(solved):
